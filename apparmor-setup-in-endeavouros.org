@@ -1,0 +1,125 @@
+#+title: AppArmor Setup in EndeavourOS
+#+author: me
+#+OPTIONS: toc:t num:nil
+#+LANGUAGE: en
+
+* Overview
+These are the steps I followed to set up AppArmor on my EndeavourOS system. This should work on other systems with minimal changes, depending on the distribution.
+
+* Requirements
+- A Linux system that supports AppArmor (or at least has the `apparmor` package).
+- Uses `systemd` as the init system. For non-systemd systems, the commands will differ.
+- Sufficient memory and CPU. Startup time may increase slightly depending on how many profiles are loaded automatically.
+
+* Procedure
+
+** Install AppArmor and Default Profiles
+
+Install the base AppArmor package. On Arch-based systems, install `apparmor` from the official repos:
+
+#+begin_src bash
+sudo pacman -S apparmor
+#+end_src
+
+Also install available profiles (optional but recommended):
+
+#+begin_src bash
+yay -S apparmor.d-git  # or from chaotic-AUR
+#+end_src
+
+** Enable AppArmor at Boot
+
+#+begin_src bash
+sudo systemctl enable apparmor
+#+end_src
+
+** Add Kernel Parameters
+
+For GRUB-based systems, append to the line in `/etc/default/grub`:
+
+#+begin_src bash
+GRUB_CMDLINE_LINUX_DEFAULT="... apparmor=1 security=apparmor"
+#+end_src
+
+Then regenerate the GRUB config:
+
+#+begin_src bash
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+#+end_src
+
+** For systemd-boot Users
+
+Edit the loader entry in `/boot/loader/entries/endeavouros.conf` (or similar):
+
+#+begin_src conf
+options root=UUID=xxxx-xxxx rw quiet apparmor=1 security=apparmor
+#+end_src
+
+** For rEFInd Users
+
+Edit `/boot/refind_linux.conf` and append to the options line:
+
+#+begin_src conf
+"Boot with standard options"  "root=UUID=xxxx-xxxx rw quiet apparmor=1 security=apparmor"
+#+end_src
+
+** Reboot and Verify
+
+#+begin_src bash
+sudo reboot
+sudo aa-status
+#+end_src
+
+Make sure that AppArmor is enabled and profiles are loaded.
+
+* Getting and Creating Profiles
+
+** Option 1: Install Community-Maintained Profiles
+
+On Arch-based systems:
+
+#+begin_src bash
+yay -S apparmor.d-git
+#+end_src
+
+You can also pull profiles from:
+
+- GitHub: https://github.com/Krathalan/apparmor.d
+- openSUSE and Ubuntu packages (manually extracted)
+
+** Option 2: Create Your Own Profiles
+
+If you only want to secure a few services:
+
+1. Make sure the service is running
+2. Run `aa-genprof` to interactively generate a profile
+
+#+begin_src bash
+sudo systemctl start cupsd
+sudo aa-genprof cupsd
+
+sudo systemctl start bluetooth
+sudo aa-genprof bluetoothd
+#+end_src
+
+Repeat the steps and fine-tune the profiles as needed.
+
+* Useful Commands
+
+** Review suggestions from logs and update existing profiles
+
+#+begin_src bash
+sudo aa-logprof
+#+end_src
+
+** Reload a modified profile
+
+#+begin_src bash
+sudo apparmor_parser -r /etc/apparmor.d/<profile>
+#+end_src
+
+** Check AppArmor logs from journal
+
+#+begin_src bash
+journalctl -k | grep apparmor
+#+end_src
