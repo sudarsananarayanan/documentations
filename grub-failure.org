@@ -153,5 +153,3 @@ reboot
 
 ---
 
-* License
-Feel free to share and modify this guide. Attribution appreciated.

@@ -147,5 +147,3 @@ yay -S snap-pac
 
 ---
 
-* License
-Feel free to share, fork, or modify this guide. Attribution appreciated.
