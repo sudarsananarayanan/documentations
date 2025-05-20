@@ -1,0 +1,17 @@
+#+title: Ansibile
+
+* Introduction:
+- Used for automation.
+- Has two main components,
+  + Control node: Main computer using which you manage resources.
+  + Manged nodes: Client nodes that you manage using the control node.
+- Uses SSH for linux and WinRM for windows for communication.
+- Is agentless. So no need to install any additional software on the managed nodes.
+
+* Tasks and playbooks:
+- Task refers to a single operation you have to perform on a managed node.
+- Tasks are executed in the order they're written.
+- Plays are a ordered collection of tasks.
+- Roles are a variable like names use to bundle a group of tasks, variables, hosts, etc, so that they can be reused.
+- Inventory is a file (or multiple files or even a directory containing multiple files) that contains the information about the managed nodes.
+- You use .ini or .yaml format to write inventory files.

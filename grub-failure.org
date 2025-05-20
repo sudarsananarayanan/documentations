@@ -1,0 +1,157 @@
+#+TITLE: GRUB Boot Recovery and Rescue Guide
+#+AUTHOR: me
+#+OPTIONS: toc:t num:nil
+#+LANGUAGE: en
+
+* Overview
+This guide documents a GRUB failure scenario encountered on an Acer Nitro V16-41 laptop. It includes recovery steps using the GRUB command line and GRUB rescue modes to boot into a live ISO or directly into an installed Linux distribution.
+
+* Background
+I had openSUSE Tumbleweed installed on my Acer Nitro V16-41 for about 8 months with no issues. I then switched to Void Linux, after which I began encountering problems like being unable to enter the BIOS. I used the GRUB command line to boot into an Artix Linux ISO and troubleshoot from there.
+
+---
+
+* Scenario 1: Booting a Live ISO (USB/CD/SD)
+** Step-by-step:
+1. On the GRUB screen, press =c= to enter the GRUB command line.
+2. List available devices:
+   #+begin_src grub
+   ls
+   #+end_src
+3. Identify the USB/CD device — usually named something like =(cd0)= or =(cd1)=.
+4. Set it as root:
+   #+begin_src grub
+   set root=(cd0)
+   #+end_src
+5. If the ISO doesn't contain a kernel/initramfs, locate the UEFI bootloader:
+   - Look for a file like =bootx64.efi= in paths such as =/EFI/boot/= or =/boot/efi/x86_64/=.
+
+6. Chainload and boot:
+   #+begin_src grub
+   chainloader /EFI/boot/bootx64.efi
+   boot
+   #+end_src
+
+---
+
+* Scenario 2: Booting into Installed System from GRUB
+If you're stuck in the GRUB CLI but want to boot your actual installed OS:
+
+** Option 1: Chainload boot.efi
+1. Identify your partitions:
+   #+begin_src grub
+   ls
+   #+end_src
+
+2. Find your root partition. Example layout:
+   - =(hd0,gpt1)= → EFI
+   - =(hd0,gpt2)= → Root
+   - =(hd0,gpt3)= → Swap
+
+3. Set root to your EFI partition:
+   #+begin_src grub
+   set root=(hd0,gpt1)
+   chainloader /EFI/boot/bootx64.efi
+   boot
+   #+end_src
+
+** Option 2: Use `linux` and `initrd` manually
+1. Set root to your root partition:
+   #+begin_src grub
+   set root=(hd0,gpt2)
+   #+end_src
+
+2. Load the kernel and initramfs:
+   #+begin_src grub
+   linux /boot/vmlinuz-linux
+   initrd /boot/initramfs-linux.img
+   boot
+   #+end_src
+
+** Note on Btrfs and Subvolumes:
+If you're using Btrfs with subvolumes (e.g. =@= for root, =@home= for home), adjust paths accordingly:
+
+#+begin_src grub
+linux /@/boot/vmlinuz-linux
+initrd /@/boot/initramfs-linux.img
+boot
+#+end_src
+
+** Optional: Automatically detect root partition
+If you're unsure where =/boot= is located:
+
+#+begin_src grub
+search --file /boot/vmlinuz-linux --set=root
+# Then proceed with linux/initrd commands.
+#+end_src
+
+---
+
+* Scenario 3: GRUB Rescue Mode
+If GRUB cannot load normally and drops to =grub rescue= mode:
+
+** Read the Error
+The rescue prompt will usually show what's missing (e.g. =normal.mod=).
+
+** Manually Load =normal.mod=
+1. Identify partitions:
+   #+begin_src grub
+   ls
+   #+end_src
+
+2. Find where your modules are located, usually on the root or EFI partition.
+
+3. Load the module:
+   #+begin_src grub
+   set root=(hd0,gpt2)
+   insmod normal
+   normal
+   #+end_src
+
+This should switch from GRUB rescue to the normal GRUB CLI or menu.
+
+---
+
+* Fixing GRUB Permanently (from a Live ISO)
+Boot into a live ISO and chroot into your installed system:
+
+** Mount Partitions
+#+begin_src bash
+mount /dev/sdX2 /mnt                    # Root partition
+mount /dev/sdX1 /mnt/boot/efi          # EFI partition (if applicable)
+mount --bind /dev /mnt/dev
+mount --bind /proc /mnt/proc
+mount --bind /sys /mnt/sys
+#+end_src
+
+** Chroot into System
+#+begin_src bash
+chroot /mnt
+#+end_src
+
+** Reinstall GRUB
+For example, on a UEFI system:
+
+#+begin_src bash
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+#+end_src
+
+** Exit and Reboot
+#+begin_src bash
+exit
+reboot
+#+end_src
+
+---
+
+* Tips and Notes
+- Use `ls (hdX,gptY)/` to inspect directories.
+- UEFI systems use `.efi` files; BIOS systems use direct kernel/initramfs loading.
+- If you frequently boot manually, consider using `grub-customizer` or editing `/etc/default/grub`.
+- Always double-check paths and partition numbers — they can differ between distros and installs.
+
+---
+
+* License
+Feel free to share and modify this guide. Attribution appreciated.

@@ -1,0 +1,151 @@
+#+TITLE: Snapper Setup in EndeavourOS
+#+AUTHOR: me
+#+OPTIONS: toc:t num:nil
+#+LANGUAGE: en
+
+* Overview
+These are the steps I followed to set up Snapper on my EndeavourOS system. This should also work on other distributions with minor package or configuration changes. For more details, refer to the excellent [[https://wiki.archlinux.org/title/Snapper][Arch Wiki]].
+
+* Requirements
+Your system should meet the following prerequisites:
+
+- Linux installed with the [[https://wiki.archlinux.org/title/Btrfs][Btrfs filesystem]].
+- Sufficient RAM to run Btrfs and Snapper efficiently.
+- If you're using a non-systemd init system, adjust relevant commands accordingly.
+
+* Procedure
+** 1. Check your partition layout
+Use tools like =lsblk= or =fdisk -l= to identify your root partition and ensure it's Btrfs. Then confirm UUIDs via:
+
+#+begin_src bash
+cat /etc/fstab
+#+end_src
+
+** 2. Install Snapper
+#+begin_src bash
+sudo pacman -S snapper
+#+end_src
+
+** 3. Create Snapper configuration
+We'll assume a setup with:
+- EFI partition
+- Root partition (Btrfs)
+- Swap partition
+
+#+begin_src bash
+# Create Snapper config for root
+sudo snapper -c root create-config /
+
+# Create mountpoint and subvolume for /.snapshots
+sudo mkdir /.snapshots
+sudo btrfs subvolume create /.snapshots
+#+end_src
+
+** 4. Update /etc/fstab
+Edit =/etc/fstab= and add the root and `.snapshots` entries. Example:
+
+#+begin_src conf
+UUID=your-root-uuid / btrfs defaults,subvol=@ 0 0
+UUID=your-root-uuid /.snapshots btrfs defaults,subvol=.snapshots 0 0
+#+end_src
+
+Then mount the new subvolume:
+
+#+begin_src bash
+sudo mount -a
+#+end_src
+
+** 5. Enable Snapper timers
+These handle automatic snapshot creation and cleanup:
+
+#+begin_src bash
+sudo systemctl enable --now snapper-timeline.timer
+sudo systemctl enable --now snapper-cleanup.timer
+#+end_src
+
+** 6. Configure Snapper retention policy
+Edit your Snapper config file:
+
+#+begin_src bash
+sudo vim /etc/snapper/configs/root
+#+end_src
+
+Example settings:
+
+#+begin_src conf
+TIMELINE_CREATE="yes"
+TIMELINE_CLEANUP="yes"
+TIMELINE_MIN_AGE="1800"
+TIMELINE_LIMIT_HOURLY="5"
+TIMELINE_LIMIT_DAILY="7"
+TIMELINE_LIMIT_WEEKLY="0"
+TIMELINE_LIMIT_MONTHLY="0"
+TIMELINE_LIMIT_YEARLY="0"
+#+end_src
+
+---
+
+* Additional Tweaks
+
+** Add Snapshots to GRUB Boot Menu
+This allows you to boot into previous snapshots:
+
+#+begin_src bash
+sudo pacman -S grub-btrfs
+sudo systemctl enable --now grub-btrfs.path
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+#+end_src
+
+** Add Snapshots to systemd-boot
+If you're using =systemd-boot= instead of GRUB:
+
+1. Install =snapper-boot= (from the AUR):
+
+#+begin_src bash
+yay -S snapper-boot
+#+end_src
+
+2. Enable and configure it:
+
+#+begin_src bash
+sudo systemctl enable --now snapper-boot.timer
+#+end_src
+
+3. Confirm that entries are being created in =/boot/loader/entries/= for your snapshots.
+
+Note: You must mount your ESP at =/boot= for systemd-boot to pick up new snapshot boot entries.
+
+** Add Snapshots to rEFInd
+rEFInd doesn't support Snapper out of the box, but you can boot into snapshots by generating boot stanzas manually or using =snapper-boot-manager= (AUR):
+
+1. Install:
+
+#+begin_src bash
+yay -S snapper-boot-manager
+#+end_src
+
+2. Run it to generate rEFInd entries:
+
+#+begin_src bash
+sudo snapper-boot-manager
+#+end_src
+
+3. Add a hook in =/etc/pacman.d/hooks/= to regenerate snapshot entries on new snapshots (optional).
+
+---
+
+* Optional GUI Tools
+- btrfs-assistant
+- buttermanager
+- snapper-gui
+
+On Arch-based systems, you can also install =snap-pac= to take automatic pre/post snapshots on package transactions (like zypper does in openSUSE):
+
+#+begin_src bash
+yay -S snap-pac
+#+end_src
+
+---
+
+* License
+Feel free to share, fork, or modify this guide. Attribution appreciated.
